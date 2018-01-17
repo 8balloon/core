@@ -89,3 +89,4 @@ plugins/c9.docker/containers/shared/files/plugins/google*
 security-audit.log
 
 repos/*
+yarn-error.log
