@@ -320,8 +320,6 @@
 }
 
 #ui-slider-handle when(@time-slider-handle-basic = false) {
-    -webkit-user-select: none;
-    -moz-user-select: none;
     user-select: none;
 }
 
@@ -382,8 +380,6 @@
 }
 
 #ui-slider-bar {
-    -webkit-user-select: none;
-    -moz-user-select: none;
     user-select: none;
     cursor: pointer;
     height: 35px;

@@ -2190,10 +2190,10 @@ apf.plane = {
         return this.$find(options && options.protect || "default");
     },
     
-    show: function(o, reAppend, copyCursor, useRealSize, options) {
+    show: function(o, options) {
         this.options = options || {};
         var item = this.$find(options && options.protect || "default");
-        item.show(o, reAppend, copyCursor, useRealSize, options);
+        item.show(o, options);
     },
     
     hide: function(protect, noAnim) {
@@ -2205,22 +2205,21 @@ apf.plane = {
         }
     },
 
+    setCursor: function(cursor) {
+        this.show("cursorCover", {
+            cursor: cursor, zClass: "print", protect: "cursorCover"
+        });
+    },
+
+    unsetCursor: function() { 
+        this.hide("cursorCover"); 
+    },
+
     $factory: function(){
-        var _self = this,
-            spacerPath = "url(" + (apf.skins.skins["default"] 
-            ? apf.skins.skins["default"].mediaPath + "spacer.gif" : "images/spacer.gif") + ")";
-        
-        function getCover(){
-            var obj = document.createElement("DIV");
-            
-            return obj;
-        }
+        var _self = this;
         
         function createCover(){
-            var cover = document.body.appendChild(getCover());
-            if (!_self.options.customCover)
-                cover.style.background = spacerPath;
-
+            var cover = apf.buildDom(["div"], document.body);
             cover.style.position = "fixed";
             cover.style.left = 0;
             cover.style.top = 0;
@@ -2234,11 +2233,11 @@ apf.plane = {
         return {
             host: this,
             plane: plane,
-            lastCursor: null,
             lastCoverType: "default",
             
-            show: function(o, reAppend, copyCursor, useRealSize, options) {
-                var coverType = options && options.customCover ? "custom" : "default",
+            show: function(o, options) {
+                if (!options) options = {}
+                var coverType = options.customCover ? "custom" : "default",
                     plane;
                 
                 if (coverType == "custom" || this.lastCoverType != coverType)
@@ -2246,66 +2245,27 @@ apf.plane = {
                 
                 plane = this.plane;
             
-                if (!options || !options.customCover)
-                    this.plane.style.background = options && options.color || spacerPath;
+                if (!options.customCover)
+                    this.plane.style.background = options.color || "";
                 
-                this.animate = options && options.animate;
-                this.protect = options && options.protect;
+                this.protect = options.protect;
                 
                 if (this.protect)
                     apf.setProperty("planes", (apf.planes || 0) + 1);
                 
-                if (o) { //@experimental
-                    this.current = o;
-                    if (reAppend) { 
-                        this.$originalPlace = [o.parentNode, o.nextSibling];
-                        this.plane.appendChild(o);
-                    }
-                }
-                if (options && options.zIndex)
-                    apf.window.zManager.set(options && options.zClass || "plane", this.plane, !reAppend && o);
+                this.current = o.style && o;
+                if (options.zIndex || options.zClass)
+                    apf.window.zManager.set(options.zClass || "plane", this.plane, this.current);
                 
-                useRealSize = apf.isIE;
-                var pWidth = (plane.parentNode == document.body
-                    ? useRealSize ? document.documentElement.offsetWidth : apf.getWindowWidth()
-                    : plane.parentNode.offsetWidth);
-         
-                var pHeight = (plane.parentNode == document.body
-                    ? useRealSize ? document.documentElement.offsetHeight : apf.getWindowHeight()
-                    : plane.parentNode.offsetHeight);
-                
-                if (copyCursor) {
-                    if (this.lastCursor === null)
-                        this.lastCursor = document.body.style.cursor;
-                    document.body.style.cursor = apf.getStyle(o, "cursor");
-                }
+                this.plane.style.cursor = options.cursor || "";
                 
                 this.plane.style.display = "block";
-                //this.plane.style.left = p.scrollLeft;
-                //this.plane.style.top = p.scrollTop;
+                this.plane.style.opacity = parseFloat(options.opacity) || (options.color ? 1 : 0);
                 
-                var toOpacity = parseFloat(options && options.opacity) || 1;
-                if (this.animate) {
-                    var _self = this;
-                    this.plane.style.opacity = 0;
-                    setTimeout(function(){
-                        apf.tween.single(_self.plane, {
-                            steps: 5,
-                            interval: 10,
-                            type: "fade",
-                            from: 0,
-                            to: toOpacity
-                        });
-                    }, 100);
-                }
-                else
-                    this.plane.style.opacity = toOpacity;
-                
-                var diff = apf.getDiff(plane);
-                this.plane.style.width = "100%";//(pWidth - diff[0]) + "px";
-                this.plane.style.height = "100%";//(pHeight - diff[1]) + "px";
+                this.plane.style.width = "100%";
+                this.plane.style.height = "100%";
         
-                this.lastCoverType = options && options.customCover ? "custom" : "default";
+                this.lastCoverType = options.customCover ? "custom" : "default";
         
                 return plane;
             },
@@ -2314,52 +2274,15 @@ apf.plane = {
                 if (this.protect)
                     apf.setProperty("planes", apf.planes - 1);
                 
-                var isChild; // try...catch block is needed to work around a FF3 Win issue with HTML elements
-                try {
-                    isChild = apf.isChildOf(this.plane, document.activeElement);
-                }
-                catch (ex) {
-                    isChild = false;
-                }
                 if (this.current && this.current.parentNode == this.plane)
                     this.$originalPlace[0].insertBefore(this.current, this.$originalPlace[1]);
                 
-                if (this.animate && !noAnim) {
-                    var _self = this;
-                    setTimeout(function(){
-                        apf.tween.single(_self.plane, {
-                            steps: 5,
-                            interval: 10,
-                            type: "fade",
-                            from: apf.getStyle(_self.plane, "opacity"),
-                            to: 0,
-                            onfinish: function(){
-                                _self.plane.style.display = "none";
-                                
-                                // if (_self.current)
-                                //     apf.window.zManager.clear(_self.current);
-                            }
-                        });
-                    }, 100);
-                }
-                else {
-                    this.plane.style.opacity = 0;
-                    if (this.current)
-                        apf.window.zManager.clear(this.plane, this.current);
-                    this.plane.style.display = "none";
-                }
-                
-                if (isChild && apf.document.activeElement) {
-                    document.activeElement.focus();
-                    apf.document.activeElement.$focus();
-                }
+                this.plane.style.opacity = 0;
+                if (this.current)
+                    apf.window.zManager.clear(this.plane, this.current);
+                this.plane.style.display = "none";
                 
                 this.current = null;
-                
-                if (this.lastCursor !== null) {
-                    document.body.style.cursor = this.lastCursor;
-                    this.lastCursor = null;
-                }
                 
                 return this.plane;
             }
@@ -2406,6 +2329,14 @@ function findCssRule(name, stylesheet, win) {
     }
 }
 
+
+function toCssPropertyName(name) {
+    return name.replace(/[A-Z]/g, function(a) {return "-" + a.toLowerCase()});
+}
+function toCamelCase(name) {
+    return name.replace(/-(\w)/g, function(_, a) {return a.toUpperCase()});
+}
+
 /**
  * This method sets a single CSS rule.
  * @param {String} name         The CSS name of the rule (i.e. `.cls` or `#id`).
@@ -2415,14 +2346,22 @@ function findCssRule(name, stylesheet, win) {
  * @param {Object} [win]        A reference to a window
  */
 apf.setStyleRule = function(name, type, value, stylesheet, win) {
+    if (!stylesheet)
+        stylesheet = apf.$dynamicStyles || (apf.$dynamicStyles = apf.createStylesheet("", "dynamicStyles.css"));
     var rule = findCssRule(name, stylesheet, win);
     if (rule) {
         if (value.indexOf("!important") > -1) {
+            type = toCssPropertyName(type);
             rule.style.cssText = type + ":" + value;
         } else {
-            type = type.replace(/-(\w)/g, function(_, a) {return a.toUpperCase()});
+            type = toCamelCase(type);
             rule.style[type] = value;
         }
+    } else {
+        type = toCssPropertyName(type);
+        apf.importStylesheet([
+            [name, type + ":" + value]
+        ], win, stylesheet);
     }
     return !!rule;
 };
@@ -2492,12 +2431,15 @@ apf.setStyleClass = function(oHtml, className, exclusion, userAction) {
  */
 apf.importCssString = function(cssString, doc, media) {
     doc = doc || document;
-    var htmlNode = doc.getElementsByTagName("head")[0];
+    var htmlNode = doc.head;
     var style = doc.createElement("style");
-    style.appendChild(doc.createTextNode(cssString));
+    if (cssString)
+        style.appendChild(doc.createTextNode(cssString));
     if (media)
         style.setAttribute('media', media);
-    htmlNode.appendChild(style);
+    var before = apf.$dynamicStyles && apf.$dynamicStyles.ownerNode;
+    htmlNode.insertBefore(style, before);
+    return style;
 };
 
 /**
@@ -2553,11 +2495,10 @@ apf.importStylesheet = function (def, win, stylesheet) {
 
         var rule = def[i][0] + " {" + def[i][1] + "}";
         try {
-            stylesheet.insertRule(rule, 0);
+            stylesheet.insertRule(rule, stylesheet.cssRules.length);
         }
         catch (e) {
-            stylesheet = new StyleSheet();
-            stylesheet.insertRule(rule, 0);
+            console.error(e);
         }
     }
 };
@@ -2567,17 +2508,10 @@ apf.importStylesheet = function (def, win, stylesheet) {
  * @param {Object}  [win] A reference to a window
  * @returns {String} The created CSS stylesheet
  */ 
-apf.createStylesheet = function(win) {
-    var doc = (win || window).document;
-    
-    if (doc.createStyleSheet)
-        return doc.createStyleSheet();
-    else {
-        var elem = doc.createElement("style");
-        elem.type = "text/css";
-        doc.getElementsByTagName("head")[0].appendChild(elem);
-        return elem.sheet;
-    }
+apf.createStylesheet = function(win, id) {
+    var elem = apf.importCssString(null, (win || window).document)
+    if (id) elem.id = id;
+    return elem.sheet;
 };
 
 /**
@@ -4246,12 +4180,8 @@ apf.skins = {
             return;
         }
 
-        
-
         //Assuming image url
-        {
-            
-
+        if (strQuery && typeof strQuery == "string" && !apf.isTrue(strQuery)) {
             var isQualified = strQuery.match(/^(https?|file):/);
             oHtml.style.backgroundImage = "url(" + (isQualified ? "" : iconPath || "")
                 + strQuery + ")";
@@ -9356,10 +9286,6 @@ apf.BaseStateButtons = function(){
                 apf.plane.hide(this.$uniqueId);
                 
                 if (this.animate && !noanim) {
-                    //Pre remove paused event because of not having onresize
-                    //if (apf.hasSingleRszEvent)
-                        //delete apf.layout.onresize[apf.layout.getHtmlId(this.$pHtmlNode)];
-
                     var htmlNode = this.$ext;
                     position = apf.getStyle(htmlNode, "position");
                     if (position != "absolute") {
@@ -9580,7 +9506,7 @@ apf.BaseStateButtons = function(){
                     pNode.style.height = (pNode.offsetHeight - pDiff[1]) + "px";
                     
                     if (!hasAnimated && _self.$maxconf && _self.$maxconf[4])
-                        apf.plane.show(htmlNode, false, null, null, {
+                        apf.plane.show(htmlNode, {
                             color: _self.$maxconf[4], 
                             opacity: _self.$maxconf[5],
                             animate: _self.animate,
@@ -10268,9 +10194,7 @@ apf.Interactive = function(){
         //@todo not for docking
         
         if (posAbs && !_self.aData) {
-            apf.plane.show(dragOutline
-                ? oOutline
-                : _self.$ext, e.reappend);//, true
+            apf.plane.setCursor("default");
         }
         
 
@@ -10313,7 +10237,7 @@ apf.Interactive = function(){
 
             
             if (posAbs && !_self.aData)
-                apf.plane.hide();
+                apf.plane.unsetCursor();
             
             
             var htmlNode = dragOutline
@@ -10514,33 +10438,16 @@ apf.Interactive = function(){
 
         
         if (posAbs) {
-            apf.plane.show(resizeOutline
-                ? oOutline
-                : ext);//, true
+            apf.plane.setCursor(getCssCursor(resizeType) + "-resize");
         }
         
         
         var iMarginLeft;
         
-        
-        {
-            if (ext.style.right) {
-                ext.style.left = myPos[0] + "px";
-
-                //console.log(myPos[0]);
-                //ext.style.right = "";
-            }
-            if (ext.style.bottom) {
-                ext.style.top = myPos[1] + "px";
-                //ext.style.bottom = "";
-            }
-        }
-        
-        if (!options || !options.nocursor) {
-            if (lastCursor === null)
-                lastCursor = document.body.style.cursor;//apf.getStyle(document.body, "cursor");
-            document.body.style.cursor = getCssCursor(resizeType) + "-resize";
-        }
+        if (ext.style.right)
+            ext.style.left = myPos[0] + "px";
+        if (ext.style.bottom)
+            ext.style.top = myPos[1] + "px";
         
         document.onmousemove = resizeMove;
         document.onmouseup = function(e, cancel) {
@@ -10548,7 +10455,7 @@ apf.Interactive = function(){
             
             
             if (posAbs)
-                apf.plane.hide();
+                apf.plane.unsetCursor();
             
             
             clearTimeout(timer);
@@ -14156,7 +14063,7 @@ apf.AmlWindow = function(struct, tagName) {
     this.$propHandlers["modal"] = function(value) {
         if (value) {
             if (this.visible)
-                apf.plane.show(this.$ext, false, null, null, {
+                apf.plane.show(this.$ext, {
                     color: "black", 
                     opacity: this.cover && this.cover.getAttribute("opacity") || 0.5,
                     protect: this.$uniqueId,
@@ -14238,7 +14145,7 @@ apf.AmlWindow = function(struct, tagName) {
                 return (this.visible = false);
             
             if (this.modal) {
-                apf.plane.show(this.$ext, false, null, null, {
+                apf.plane.show(this.$ext, {
                     color: "black", 
                     opacity: this.cover && this.cover.getAttribute("opacity") || 0.5,
                     protect: this.$uniqueId,
